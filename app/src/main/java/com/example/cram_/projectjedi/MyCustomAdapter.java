@@ -29,7 +29,7 @@ public class MyCustomAdapter extends RecyclerView.Adapter<MyCustomAdapter.Adapte
 
     @Override
     public void onBindViewHolder(MyCustomAdapter.AdapterViewHolder adapterViewHolder, int position) {
-        adapterViewHolder.user.setText(users.get(position)+" "+scores.get(position).toString());
+        adapterViewHolder.user.setText(scores.get(position).toString() + " " + users.get(position));
     }
 
     @Override

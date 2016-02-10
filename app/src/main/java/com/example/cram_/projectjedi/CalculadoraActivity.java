@@ -6,6 +6,8 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.net.Uri;
 import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.TaskStackBuilder;
@@ -19,6 +21,8 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.text.DecimalFormat;
+
 public class CalculadoraActivity extends BaseActivity implements  View.OnClickListener {
 
     TextView display;
@@ -31,13 +35,20 @@ public class CalculadoraActivity extends BaseActivity implements  View.OnClickLi
     boolean newNumber = true;
     boolean dot = false;
 
+    MenuItem alert;
+    MenuItem notification;
+    Users users;
+
+    SharedPreferences settings;
+    public static final String PREFS_NAME = "prefs";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_calculadora);
-        currentView = R.id.activityCalc;
 
         display = (TextView) findViewById(R.id.textView);
+        users = new Users(getApplicationContext());
 
         if (savedInstanceState != null) {
             notif = savedInstanceState.getBoolean("notif");
@@ -49,6 +60,12 @@ public class CalculadoraActivity extends BaseActivity implements  View.OnClickLi
             display.setText(savedInstanceState.getString("displayText"));
         }
 
+        settings = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        Cursor c = users.getNotif(settings.getString("user", "no name"));
+        String typeNotification = "alert";
+        if(c.moveToFirst())
+            typeNotification = c.getString(c.getColumnIndex("notif"));
+        notif=typeNotification!="alert";
         setButtons();
     }
 
@@ -66,28 +83,61 @@ public class CalculadoraActivity extends BaseActivity implements  View.OnClickLi
     }
 
     @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        super.onPrepareOptionsMenu(menu);
+        String typeNotification = "alert";
+        Cursor c = users.getNotif(settings.getString("user","no name"));
+        if(c.moveToFirst())
+            typeNotification = c.getString(c.getColumnIndex("notif"));
+        if(typeNotification.equals("alert")) {
+            notification.setChecked(false);
+            alert.setChecked(true);
+        }
+        else {
+            alert.setChecked(false);
+            notification.setChecked(true);
+        }
+
+        return true;
+    }
+
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_calculadora, menu);
+
+        notification = menu.findItem(R.id.notification);
+        alert = menu.findItem(R.id.dialog);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        Intent intent;
         switch (item.getItemId()) {
             case R.id.logout:
+                Toast.makeText(getApplicationContext(), "Logged Out", Toast.LENGTH_SHORT).show();
+                SharedPreferences.Editor editor = settings.edit();
+                editor.clear();
+                editor.apply();
+
+                intent = new Intent(getApplicationContext(), MainActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(intent);
                 return true;
             case R.id.call:
-                Intent intent = new Intent(Intent.ACTION_DIAL, Uri.parse("tel:972340598"));
+                intent = new Intent(Intent.ACTION_DIAL, Uri.parse("tel:972340598"));
                 startActivity(intent);
                 return true;
             case R.id.navegator:
-                Intent myIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("http://www.google.com"));
-                startActivity(myIntent);
+                intent = new Intent(Intent.ACTION_VIEW, Uri.parse("http://www.google.com"));
+                startActivity(intent);
                 return true;
             case R.id.notification:
+                users.setNotif("notification", settings.getString("user", "no name"));
                 notif = true;
                 return true;
             case R.id.dialog:
+                users.setNotif("alert", settings.getString("user", "no name"));
                 notif = false;
                 return true;
             default:
@@ -164,15 +214,13 @@ public class CalculadoraActivity extends BaseActivity implements  View.OnClickLi
 
     public void writeNumber(String number) {
         String displayText = display.getText().toString();
-        if (displayText.length()<15) {
-            if (newNumber) { //displayText.equals("0")
-                display.setText(number);
-                if(!number.equals("0"))
-                    newNumber = false;
-            }
-            else
-                display.setText(displayText + number);
+        if (newNumber) { //displayText.equals("0")
+            display.setText(number);
+            if(!number.equals("0"))
+                newNumber = false;
         }
+        else if (displayText.length()<15)
+            display.setText(displayText + number);
     }
 
     public void operate(String operation) {
@@ -195,11 +243,13 @@ public class CalculadoraActivity extends BaseActivity implements  View.OnClickLi
             lastNum = actualNum;
         }
 
-        if(lastNum == (long) lastNum)
-            display.setText(String.valueOf(((long) lastNum)));
-        else
-            display.setText(String.valueOf((lastNum)));
-
+        String displayedText;
+        DecimalFormat DECIMAL_FORMATER = new DecimalFormat("##.##");
+        DecimalFormat SCIENTIFIC_FORMATER = new DecimalFormat("0.##########E0");
+        displayedText = DECIMAL_FORMATER.format(lastNum).replace(",",".");
+        if(displayedText.length()>14)
+            displayedText = SCIENTIFIC_FORMATER.format(lastNum).replace(",",".");
+        display.setText(displayedText);
         lastOp = operation;
         newNumber = true;
         dot = false;

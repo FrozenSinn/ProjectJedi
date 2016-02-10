@@ -12,7 +12,6 @@ import android.view.MenuItem;
 import android.widget.FrameLayout;
 
 public class BaseActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener{
-    protected int currentView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,25 +38,32 @@ public class BaseActivity extends AppCompatActivity implements NavigationView.On
 
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
+        Intent i;
         switch (item.getItemId()) {
             case R.id.activityCalc:
-                if(currentView != R.id.activityProfile) finish();
-                startActivity(new Intent(getApplicationContext(),CalculadoraActivity.class));
+                i = new Intent(getApplicationContext(),CalculadoraActivity.class);
+                i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(i);
                 break;
             case R.id.activityMemory:
-                if(currentView != R.id.activityProfile) finish();
-                startActivity(new Intent(getApplicationContext(),MemoryActivity.class));
+                i = new Intent(getApplicationContext(),MemoryActivity.class);
+                i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(i);
                 break;
             case R.id.activityRanking:
-                if(currentView != R.id.activityProfile) finish();
-                startActivity(new Intent(getApplicationContext(),RankingActivity.class));
+                i = new Intent(getApplicationContext(),RankingActivity.class);
+                i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(i);
                 break;
             case R.id.activityProfile:
-                if(currentView != R.id.activityProfile) finish();
+                i = new Intent(getApplicationContext(),ProfileActivity.class);
+                i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(i);
                 break;
             case R.id.activityMPlayer:
-                if(currentView != R.id.activityProfile) finish();
-                startActivity(new Intent(getApplicationContext(),MediaPlayerActivity.class));
+                i = new Intent(getApplicationContext(),MediaPlayerActivity.class);
+                i.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(i);
                 break;
         }
 

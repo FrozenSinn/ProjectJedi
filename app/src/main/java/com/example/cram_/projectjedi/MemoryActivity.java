@@ -6,8 +6,13 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.Image;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -24,7 +29,9 @@ import java.util.Collections;
 public class MemoryActivity extends BaseActivity implements View.OnClickListener{
 
     int[] imageURI;
-    int backimage, blank;
+    int backimage;
+
+    boolean blocked = false;
 
 
     ArrayList<Integer> randomImage;
@@ -51,7 +58,6 @@ public class MemoryActivity extends BaseActivity implements View.OnClickListener
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_memory);
         backimage = R.drawable.jediimage;
-        blank = R.drawable.blank;
         imageURI = new int[8];
         imageURI[0]= R.drawable.upc;
         imageURI[1]= R.drawable.android;
@@ -63,7 +69,6 @@ public class MemoryActivity extends BaseActivity implements View.OnClickListener
         imageURI[7]= R.drawable.apple;
 
         tScore = (TextView)findViewById(R.id.textViewScore);
-        currentView = R.id.activityMemory;
         coolImageFlipper = new CoolImageFlipper(getApplicationContext());
 
         settings = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
@@ -72,6 +77,36 @@ public class MemoryActivity extends BaseActivity implements View.OnClickListener
         initRandomImage();
 
         setImageViews();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_memory, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        Intent intent;
+        switch (item.getItemId()) {
+            case R.id.logout_memory:
+                Toast.makeText(getApplicationContext(), "Logged Out", Toast.LENGTH_SHORT).show();
+                SharedPreferences.Editor editor = settings.edit();
+                editor.clear();
+                editor.apply();
+
+                intent = new Intent(getApplicationContext(), MainActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(intent);
+                return true;
+            case R.id.reset:
+                intent = new Intent(getApplicationContext(), MemoryActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                startActivity(intent);
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
     }
 
     public void initRandomImage() {
@@ -172,55 +207,70 @@ public class MemoryActivity extends BaseActivity implements View.OnClickListener
     }
 
     public void flipCard(final ImageView image, int i){
-        int numImage = randomImage.get(i-1); //temporal
-        coolImageFlipper.flipImage(getResources().getDrawable(imageURI[numImage]), image);
-        if(flipping_second) {
-            score++;
-            flipping_second = false;
-            tScore.setText("Score: " + Integer.toString(score));
-            //wait 2 seconds
-            if (numImage == pBefore) {
-                new Thread(new Runnable() {
-                    public void run() {
-                        try {
-                            Thread.sleep(2000);
-                            left--;
-                            coolImageFlipper.flipImage(getResources().getDrawable(blank), image);
-                            coolImageFlipper.flipImage(getResources().getDrawable(blank), iBefore);
-                            if(left==0) {
-                                memoryEnd();
+        if(!blocked) {
+            int numImage = randomImage.get(i - 1);
+            coolImageFlipper.flipImage(getResources().getDrawable(imageURI[numImage]), image);
+            if (flipping_second) {
+                score++;
+                blocked = true;
+                flipping_second = false;
+                tScore.setText("Score: " + Integer.toString(score));
+                //wait 2 seconds
+                if (numImage == pBefore) {
+                    new Thread(new Runnable() {
+                        public void run() {
+                            try {
+                                Thread.sleep(2000);
+                                Message msg = new Message();
+                                msg.what = 1;
+                                msg.obj = image;
+                                mhHandler.sendMessage(msg);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
                             }
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
                         }
-                    }
-                }).start();
-
-            }
-            else {
-                new Thread(new Runnable() {
-                    public void run() {
-                        try {
-                            Thread.sleep(2000);
-                            left--;
-                            coolImageFlipper.flipImage(getResources().getDrawable(backimage), image);
-                            coolImageFlipper.flipImage(getResources().getDrawable(backimage), iBefore);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
+                    }).start();
+                } else {
+                    new Thread(new Runnable() {
+                        public void run() {
+                            try {
+                                Thread.sleep(2000);
+                                Message msg = new Message();
+                                msg.what = 0;
+                                msg.obj = image;
+                                mhHandler.sendMessage(msg);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         }
-                    }
-                }).start();
-                coolImageFlipper.flipImage(getResources().getDrawable(backimage), image);
-                coolImageFlipper.flipImage(getResources().getDrawable(backimage), iBefore);
+                    }).start();
+                }
+            } else {
+                flipping_second = true;
+                iBefore = image;
+                pBefore = numImage;
             }
-        }
-        else {
-            flipping_second = true;
-            iBefore = image;
-            pBefore = numImage;
         }
 
     }
+
+    private Handler mhHandler = new Handler() {
+        public void handleMessage(android.os.Message msg) {
+            if (msg.what == 1 && msg.obj!=null) {
+                left--;
+                ImageView image = (ImageView) msg.obj;
+                image.setVisibility(View.INVISIBLE);
+                iBefore.setVisibility(View.INVISIBLE);
+                if(left==0)
+                    memoryEnd();
+            }
+            else if (msg.what == 0 && msg.obj!=null) {
+                coolImageFlipper.flipImage(getResources().getDrawable(backimage), (ImageView) msg.obj);
+                coolImageFlipper.flipImage(getResources().getDrawable(backimage), iBefore);
+            }
+            blocked = false;
+        }
+    };
 
     public void memoryEnd() {
         ContentValues valuesToStore = new ContentValues();
