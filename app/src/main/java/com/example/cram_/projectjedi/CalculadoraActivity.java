@@ -1,22 +1,35 @@
 package com.example.cram_.projectjedi;
 
+import android.app.AlertDialog;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.net.Uri;
+import android.support.v4.app.NotificationCompat;
+import android.support.v4.app.TaskStackBuilder;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class CalculadoraActivity extends BaseActivity implements  View.OnClickListener {
 
     TextView display;
-    Button b1, b2, b3, b4, b5, b6, b7, b8, b9, b0, bAdd, bSub, bMul, bDiv, bEq, bCE, bAns;
+    Button b1, b2, b3, b4, b5, b6, b7, b8, b9, b0, bAdd, bSub, bMul, bDiv, bEq, bCE, bAns, bPoint;
+    boolean notif = false;
 
-    float lastNum = 0;
-    float lastResult = 0;
+    double lastNum = 0;
+    double lastResult = 0;
     String lastOp = "=";
     boolean newNumber = true;
+    boolean dot = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,13 +39,60 @@ public class CalculadoraActivity extends BaseActivity implements  View.OnClickLi
 
         display = (TextView) findViewById(R.id.textView);
 
+        if (savedInstanceState != null) {
+            notif = savedInstanceState.getBoolean("notif");
+            lastNum = savedInstanceState.getDouble("lastNum");
+            lastResult = savedInstanceState.getDouble("lastResult");
+            lastOp = savedInstanceState.getString("lastOp");
+            newNumber = savedInstanceState.getBoolean("newNumber");
+            dot = savedInstanceState.getBoolean("dot");
+            display.setText(savedInstanceState.getString("displayText"));
+        }
+
         setButtons();
     }
 
     @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean("notif", notif);
+        outState.putDouble("lastNum", lastNum);
+        outState.putDouble("lastResult",lastResult);
+        outState.putString("lastOp", lastOp);
+        outState.putBoolean("newNumber", newNumber);
+        outState.putBoolean("dot", dot);
+        outState.putString("displayText", display.getText().toString());
+
+        super.onSaveInstanceState(outState);
+    }
+
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.simple_menu, menu);
+        getMenuInflater().inflate(R.menu.menu_calculadora, menu);
         return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.logout:
+                return true;
+            case R.id.call:
+                Intent intent = new Intent(Intent.ACTION_DIAL, Uri.parse("tel:972340598"));
+                startActivity(intent);
+                return true;
+            case R.id.navegator:
+                Intent myIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("http://www.google.com"));
+                startActivity(myIntent);
+                return true;
+            case R.id.notification:
+                notif = true;
+                return true;
+            case R.id.dialog:
+                notif = false;
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
     }
 
     @Override
@@ -87,8 +147,18 @@ public class CalculadoraActivity extends BaseActivity implements  View.OnClickLi
                 erase();
                 break;
             case R.id.buttonAns:
-                writeNumber(Float.toString(lastResult));
+                writeNumber(Double.toString(lastResult));
                 break;
+            case R.id.buttonDot:
+                if(!dot) {
+                    String displayText = display.getText().toString();
+                    if(newNumber) {
+                        displayText = "0";
+                        newNumber = false;
+                    }
+                    display.setText(displayText + ".");
+                    dot = true;
+                }
         }
     }
 
@@ -107,28 +177,83 @@ public class CalculadoraActivity extends BaseActivity implements  View.OnClickLi
 
     public void operate(String operation) {
         String displayText = display.getText().toString();
-        float actualNum = Float.parseFloat(displayText);
+        double actualNum = Double.parseDouble(displayText);
         if(lastOp.equals("+"))
             lastNum += actualNum;
         else if(lastOp.equals("-"))
             lastNum -= actualNum;
         else if(lastOp.equals("*"))
             lastNum *= actualNum;
-        else if(lastOp.equals("/"))
-            lastNum /= actualNum;
+        else if(lastOp.equals("/")) {
+            if (actualNum == 0)
+                showError();
+            else
+                lastNum /= actualNum;
+        }
         else if(lastOp.equals("=")) {
             lastResult = lastNum;
             lastNum = actualNum;
         }
-        //new java.text.DecimalFormat("#").format(lastNum);
-        display.setText(String.valueOf(lastNum));
+
+        if(lastNum == (long) lastNum)
+            display.setText(String.valueOf(((long) lastNum)));
+        else
+            display.setText(String.valueOf((lastNum)));
+
         lastOp = operation;
         newNumber = true;
+        dot = false;
     }
 
     public void erase() {
         display.setText("0");
         newNumber = true;
+    }
+
+    public void showError() {
+        if(notif) {
+            int mId = 1;
+            NotificationManager mNotificationManager =
+                    (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+            NotificationCompat.Builder mBuilder =
+                    new NotificationCompat.Builder(getApplicationContext())
+                            .setSmallIcon(R.drawable.jediimage)
+                            .setContentTitle("Error")
+                            .setContentText("Has dividido entre 0");
+
+
+            /*Intent resultIntent = new Intent(getApplicationContext(), CalculadoraActivity.class);
+            TaskStackBuilder stackBuilder = TaskStackBuilder.create(getApplicationContext());
+            stackBuilder.addParentStack(CalculadoraActivity.class);
+
+            stackBuilder.addNextIntent(resultIntent);
+            PendingIntent resultPendingIntent =
+                    stackBuilder.getPendingIntent(
+                            0,
+                            PendingIntent.FLAG_UPDATE_CURRENT
+                    );
+            mBuilder.setContentIntent(resultPendingIntent);*/
+
+            mNotificationManager.notify(mId, mBuilder.build());
+        }
+        else {
+            AlertDialog.Builder builder = new AlertDialog.Builder(CalculadoraActivity.this);
+
+            builder.setTitle("Error");
+            builder.setMessage("Has dividido un número entre 0");
+
+            builder.setPositiveButton("Ok",
+                    new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            Toast.makeText(getApplicationContext(), "ok", Toast.LENGTH_LONG).show();
+                        }
+                    }
+            );
+            AlertDialog dialog = builder.create();
+            dialog.show();
+        }
     }
 
     public void setButtons() {
@@ -166,5 +291,7 @@ public class CalculadoraActivity extends BaseActivity implements  View.OnClickLi
         bCE.setOnClickListener(this);
         bAns = (Button) findViewById(R.id.buttonAns);
         bAns.setOnClickListener(this);
+        bPoint = (Button) findViewById(R.id.buttonDot);
+        bPoint.setOnClickListener(this);
     }
 }
